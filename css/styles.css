@@ -585,12 +585,14 @@ video.scan-vid{
 }
 .key-row{display:flex;align-items:center;gap:7px}
 .key-icon{font-size:11px;color:var(--accent4);flex-shrink:0}
-.key-bar input{
-  flex:1;background:transparent;border:none;outline:none;
-  color:var(--text);font-family:var(--mono);font-size:11px;
-  letter-spacing:.04em;min-width:0
+.key-label{
+  font-size:9px;color:var(--muted);letter-spacing:.12em;
+  text-transform:uppercase;flex-shrink:0
 }
-.key-bar input::placeholder{color:var(--muted);font-size:10px}
+.key-powered{
+  font-size:9px;color:var(--accent4);letter-spacing:.06em;
+  flex-shrink:0;opacity:.8
+}
 #model-sel{
   flex-shrink:0;background:var(--surface3);border:1px solid var(--border);
   border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:9px;
@@ -599,9 +601,6 @@ video.scan-vid{
 }
 #model-sel:focus{border-color:var(--accent4)}
 #model-sel option{background:var(--surface)}
-#key-status{font-size:11px;flex-shrink:0;transition:all .2s;white-space:nowrap}
-#key-status.ok{color:var(--accent)}
-#key-status.bad{color:var(--accent2)}
 .key-hint{
   font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:.03em
 }

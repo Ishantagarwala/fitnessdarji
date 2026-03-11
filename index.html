@@ -585,7 +585,7 @@ video.scan-vid{
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 
 /* ═══════════════════════════════════════════
-   GEMINI KEY BAR
+   OPENAI KEY BAR
 ═══════════════════════════════════════════ */
 .key-bar{
   margin:6px 0 4px;
@@ -639,20 +639,19 @@ video.scan-vid{
       <div class="key-row">
         <span class="key-icon">✦</span>
         <input type="password" id="gemini-key-inp"
-          placeholder="Paste Gemini API key to enable AI features…"
+          placeholder="Paste OpenAI API key to enable AI features…"
           oninput="setKey(this.value)" autocomplete="off" spellcheck="false">
-        <select id="model-sel" onchange="setModel(this.value)" title="Gemini model">
-          <option value="gemini-1.5-flash" selected>1.5 Flash ✓free</option>
-          <option value="gemini-1.5-flash-8b">1.5 Flash 8B ✓free</option>
-          <option value="gemini-1.5-pro">1.5 Pro ✓free</option>
-          <option value="gemini-2.0-flash-lite">2.0 Flash Lite</option>
-          <option value="gemini-2.0-flash">2.0 Flash (billing)</option>
+        <select id="model-sel" onchange="setModel(this.value)" title="OpenAI model">
+          <option value="gpt-4o" selected>GPT-4o</option>
+          <option value="gpt-4o-mini">GPT-4o mini</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
         </select>
         <span id="key-status"></span>
       </div>
       <div class="key-hint">
-        Free tier: 15 req/min · 1,500 req/day ·
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get API key →</a>
+        GPT-4o supports vision · Get key at
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com →</a>
       </div>
     </div>
     <div class="progress-dots" id="dots"></div>
@@ -730,23 +729,20 @@ function timeline() {
 }
 
 /* ══════════════════════════════════════════════════════
-   GEMINI API KEY
+   OPENAI API KEY & MODEL
 ══════════════════════════════════════════════════════ */
-let GEMINI_KEY = '';
-let GEMINI_MODEL = 'gemini-1.5-flash';
-
-function geminiURL() {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-}
+let OPENAI_KEY = '';
+let OPENAI_MODEL = 'gpt-4o';
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 function setKey(val) {
-  GEMINI_KEY = val.trim();
+  OPENAI_KEY = val.trim();
   const st = document.getElementById('key-status');
   if (!st) return;
-  if (GEMINI_KEY.length > 10) {
+  if (OPENAI_KEY.startsWith('sk-') && OPENAI_KEY.length > 20) {
     st.textContent = '✓ key set';
     st.className = 'ok';
-  } else if (GEMINI_KEY.length > 0) {
+  } else if (OPENAI_KEY.length > 0) {
     st.textContent = '…';
     st.className = '';
   } else {
@@ -756,64 +752,79 @@ function setKey(val) {
 }
 
 function setModel(val) {
-  GEMINI_MODEL = val;
-  showNotif(`Model → ${val}`, 'Gemini');
+  OPENAI_MODEL = val;
+  showNotif(`Model → ${val}`, 'OpenAI');
 }
 
-/* Parse a 429 response and return a human-readable message with retry time */
-async function parseGeminiError(res) {
+/* Parse OpenAI error responses into readable messages */
+async function parseOpenAIError(res) {
   let body = {};
   try { body = await res.json(); } catch(_) {}
   const msg = body.error?.message || res.statusText || 'Unknown error';
+  const code = body.error?.code || '';
   if (res.status === 429) {
-    const retryMatch = msg.match(/retry in ([\d.]+)s/i);
-    const retrySec = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null;
-    const quotaHint = msg.includes('free_tier')
-      ? `Free-tier quota hit on <strong>${GEMINI_MODEL}</strong>. Try switching to <strong>gemini-1.5-flash</strong> or <strong>1.5-flash-8b</strong> in the model selector.`
-      : `Rate limit hit.`;
-    return `429 Too Many Requests — ${quotaHint}${retrySec ? ` Retry in <strong>${retrySec}s</strong>.` : ''}`;
+    const retryAfter = res.headers.get('retry-after');
+    const retryMsg = retryAfter ? ` Retry in <strong>${retryAfter}s</strong>.` : '';
+    if (code === 'insufficient_quota') {
+      return `429 Quota exceeded — your OpenAI account has run out of credits. Add billing at <a href="https://platform.openai.com/account/billing" target="_blank" style="color:var(--accent4)">platform.openai.com</a>.${retryMsg}`;
+    }
+    return `429 Rate limit hit on <strong>${OPENAI_MODEL}</strong>.${retryMsg} Try <strong>gpt-4o-mini</strong> for higher rate limits.`;
   }
+  if (res.status === 401) return `401 Invalid API key — check the key you pasted in the header bar.`;
   if (res.status === 400) return `400 Bad Request — ${msg}`;
-  if (res.status === 403) return `403 Forbidden — API key may be invalid or restricted.`;
+  if (res.status === 403) return `403 Forbidden — ${msg}`;
   return `${res.status}: ${msg}`;
 }
 
 /* ══════════════════════════════════════════════════════
-   AI API — Google Gemini (model selectable in header)
+   AI API — OpenAI Chat Completions (GPT-4o default)
 ══════════════════════════════════════════════════════ */
 async function callAPI(prompt) {
-  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar.');
-  const res = await fetch(`${geminiURL()}?key=${GEMINI_KEY}`, {
+  if (!OPENAI_KEY) throw new Error('No OpenAI API key — paste your key (sk-…) in the header bar.');
+  const res = await fetch(OPENAI_URL, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_KEY}`
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+      model: OPENAI_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error(await parseGeminiError(res));
+  if (!res.ok) throw new Error(await parseOpenAIError(res));
   const d = await res.json();
-  return d.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  return d.choices?.[0]?.message?.content ?? '';
 }
 
 async function callVisionAPI(prompt, b64) {
-  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar.');
-  const res = await fetch(`${geminiURL()}?key=${GEMINI_KEY}`, {
+  if (!OPENAI_KEY) throw new Error('No OpenAI API key — paste your key (sk-…) in the header bar.');
+  /* GPT-3.5 Turbo does not support vision — fall back to gpt-4o */
+  const visionModel = OPENAI_MODEL === 'gpt-3.5-turbo' ? 'gpt-4o' : OPENAI_MODEL;
+  const res = await fetch(OPENAI_URL, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_KEY}`
+    },
     body: JSON.stringify({
-      contents: [{
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: 'image/jpeg', data: b64 } }
+      model: visionModel,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64}` } }
         ]
       }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+      temperature: 0.4,
+      max_tokens: 2048
     })
   });
-  if (!res.ok) throw new Error(await parseGeminiError(res));
+  if (!res.ok) throw new Error(await parseOpenAIError(res));
   const d = await res.json();
-  return d.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+  return d.choices?.[0]?.message?.content ?? '';
 }
 
 function parseArr(raw) {
@@ -1400,7 +1411,7 @@ Make meals realistic and delicious. Total ~${d} kcal.`;
         ${m.tip?`<div class="meal-tip">${m.tip}</div>`:''}
       </div>`).join('');
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate meal plan. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genMeals()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate meal plan. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genMeals()">Retry</button></div>`;
   }
 }
 
@@ -1452,7 +1463,7 @@ Include 4-6 exercises per day. Make it progressive and goal-appropriate.`;
           </div>`).join('')}
       </div>`).join('');
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate workout. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genWorkout()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate workout. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genWorkout()">Retry</button></div>`;
   }
 }
 
@@ -1594,7 +1605,7 @@ Return ONLY valid JSON (no other text):
     out.innerHTML=renderBodyResults(data);
     setTimeout(()=>animBars('m-fill'),120);
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. Check your Gemini API key — all supported models handle vision natively.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. GPT-4o and GPT-4o-mini support vision — check your API key.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
   }
 }
 
@@ -1696,7 +1707,7 @@ Return ONLY valid JSON:
     const data=parseObj(raw);
     out.innerHTML=renderSkinResults(data);
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Skin analysis failed. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeSkin()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Skin analysis failed. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeSkin()">Retry</button></div>`;
   }
 }
 
@@ -1901,7 +1912,7 @@ Return ONLY valid JSON:
       ${data.rules?`<div class="proto-card"><div class="proto-title">📋 Cheat Meal Rules</div>${data.rules.map(r=>`<div class="proto-rule">${r}</div>`).join('')}</div>`:''}
       ${data.recovery_tips?`<div class="proto-card" style="border-color:rgba(0,229,192,.2)"><div class="proto-title" style="color:var(--accent)">⚡ Recovery Plan</div>${data.recovery_tips.map(r=>`<div class="proto-rule">${r}</div>`).join('')}</div>`:''}`;
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not plan cheat meal. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genCheat()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not plan cheat meal. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genCheat()">Retry</button></div>`;
   }
 }
 
@@ -1982,7 +1993,7 @@ Coach:`;
     typing.remove();
     const em=document.createElement('div');
     em.className='msg ai';
-    em.innerHTML=`<div style="color:var(--accent2)">⚠️ Gemini connection failed. Check your API key in the header bar.</div>`;
+    em.innerHTML=`<div style="color:var(--accent2)">⚠️ OpenAI connection failed. Check your API key in the header bar.</div>`;
     msgs.appendChild(em);
   }
   msgs.scrollTop=msgs.scrollHeight;

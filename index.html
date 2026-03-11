@@ -20,20 +20,20 @@
     <div class="key-bar">
       <div class="key-row">
         <span class="key-icon">✦</span>
-        <input type="password" id="gemini-key-inp"
-          placeholder="Paste OpenAI API key to enable AI features…"
-          oninput="setKey(this.value)" autocomplete="off" spellcheck="false">
-        <select id="model-sel" onchange="setModel(this.value)" title="OpenAI model">
-          <option value="gpt-4o" selected>GPT-4o</option>
-          <option value="gpt-4o-mini">GPT-4o mini</option>
-          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        <span class="key-label">Model</span>
+        <select id="model-sel" onchange="setModel(this.value)" title="AI model via ZenMux">
+          <option value="openai/gpt-4o" selected>GPT-4o</option>
+          <option value="openai/gpt-4o-mini">GPT-4o mini</option>
+          <option value="anthropic/claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+          <option value="anthropic/claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+          <option value="google/gemini-2.0-flash">Gemini 2.0 Flash</option>
+          <option value="google/gemini-1.5-pro">Gemini 1.5 Pro</option>
         </select>
-        <span id="key-status"></span>
+        <span class="key-powered">via ZenMux</span>
       </div>
       <div class="key-hint">
-        GPT-4o supports vision · Get key at
-        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com →</a>
+        94 models · OpenAI · Anthropic · Google ·
+        <a href="https://zenmux.ai/models" target="_blank" rel="noopener">zenmux.ai/models →</a>
       </div>
     </div>
     <div class="progress-dots" id="dots"></div>

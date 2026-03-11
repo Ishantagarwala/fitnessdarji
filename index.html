@@ -585,6 +585,86 @@ video.scan-vid{
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 
 /* ═══════════════════════════════════════════
+   OPENAI KEY BAR
+═══════════════════════════════════════════ */
+.key-bar{
+  margin:6px 0 4px;
+  background:rgba(14,20,24,.8);
+  border:1px solid var(--border);
+  border-radius:8px;padding:7px 10px;
+}
+.key-row{display:flex;align-items:center;gap:7px}
+.key-icon{font-size:11px;color:var(--accent4);flex-shrink:0}
+.key-bar input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--text);font-family:var(--mono);font-size:11px;
+  letter-spacing:.04em;min-width:0
+}
+.key-bar input::placeholder{color:var(--muted);font-size:10px}
+#model-sel{
+  flex-shrink:0;background:var(--surface3);border:1px solid var(--border);
+  border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:9px;
+  padding:2px 4px;outline:none;cursor:pointer;max-width:110px;
+  -webkit-appearance:none;appearance:none
+}
+#model-sel:focus{border-color:var(--accent4)}
+#model-sel option{background:var(--surface)}
+#key-status{font-size:11px;flex-shrink:0;transition:all .2s;white-space:nowrap}
+#key-status.ok{color:var(--accent)}
+#key-status.bad{color:var(--accent2)}
+.key-hint{
+  font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:.03em
+}
+.key-hint a{color:var(--accent4);text-decoration:none}
+.key-hint a:hover{text-decoration:underline}
+
+/* ═══════════════════════════════════════════
+   CORS / LOCAL SERVER BANNER
+═══════════════════════════════════════════ */
+#cors-banner{
+  position:fixed;inset:0;z-index:99999;
+  background:rgba(8,12,15,.92);backdrop-filter:blur(12px);
+  display:flex;align-items:center;justify-content:center;padding:20px
+}
+.cors-inner{
+  background:var(--surface);border:1px solid var(--accent2);
+  border-radius:14px;padding:24px 20px;max-width:460px;width:100%
+}
+.cors-title{
+  font-family:var(--display);font-size:18px;font-weight:800;
+  color:var(--accent2);margin-bottom:10px
+}
+.cors-body{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px}
+.cors-body code{color:var(--accent3);background:var(--surface2);padding:1px 5px;border-radius:3px}
+.cors-cmds{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.cors-cmd{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;cursor:pointer;transition:border-color .2s
+}
+.cors-cmd:hover{border-color:var(--accent)}
+.cors-lang{
+  font-size:9px;color:var(--muted);letter-spacing:.1em;
+  text-transform:uppercase;flex-shrink:0;width:40px
+}
+.cors-cmd code{
+  flex:1;font-family:var(--mono);font-size:12px;color:var(--accent);
+  background:none;padding:0
+}
+.cors-copy{
+  font-size:9px;color:var(--muted);flex-shrink:0;
+  letter-spacing:.08em;text-transform:uppercase
+}
+.cors-cmd:hover .cors-copy{color:var(--accent)}
+.cors-dismiss{
+  margin-top:14px;width:100%;padding:9px;
+  background:transparent;border:1px solid var(--border);border-radius:8px;
+  color:var(--muted);font-family:var(--mono);font-size:10px;cursor:pointer;
+  transition:all .2s
+}
+.cors-dismiss:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* ═══════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════ */
 @media(max-width:480px){
@@ -601,6 +681,25 @@ video.scan-vid{
     <div class="logo-tag">Personal Health Engine v3.0</div>
     <h1 class="app-title">Fitness | <span class="hindi-title">दर्जी</span></h1>
     <p class="tagline">// आपका personal health coach — biomarkers to kitchen in 60s</p>
+    <div class="key-bar">
+      <div class="key-row">
+        <span class="key-icon">✦</span>
+        <input type="password" id="gemini-key-inp"
+          placeholder="Paste OpenAI API key to enable AI features…"
+          oninput="setKey(this.value)" autocomplete="off" spellcheck="false">
+        <select id="model-sel" onchange="setModel(this.value)" title="OpenAI model">
+          <option value="gpt-4o" selected>GPT-4o</option>
+          <option value="gpt-4o-mini">GPT-4o mini</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        </select>
+        <span id="key-status"></span>
+      </div>
+      <div class="key-hint">
+        GPT-4o supports vision · Get key at
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com →</a>
+      </div>
+    </div>
     <div class="progress-dots" id="dots"></div>
   </header>
 
@@ -616,6 +715,40 @@ video.scan-vid{
 
 <!-- TOASTS -->
 <div id="toasts"></div>
+
+<!-- CORS / FILE-PROTOCOL BANNER -->
+<div id="cors-banner" style="display:none">
+  <div class="cors-inner">
+    <div class="cors-title">⚠️ Open via localhost — not as a file</div>
+    <div class="cors-body">
+      Browsers block API calls from <code>file://</code> URLs (CORS null-origin).
+      Run a local server in the same folder, then open the URL it gives you:
+    </div>
+    <div class="cors-cmds">
+      <div class="cors-cmd" onclick="copyCmd(this)" data-cmd="python3 -m http.server 8080">
+        <span class="cors-lang">Python 3</span>
+        <code>python3 -m http.server 8080</code>
+        <span class="cors-copy">copy</span>
+      </div>
+      <div class="cors-cmd" onclick="copyCmd(this)" data-cmd="npx serve .">
+        <span class="cors-lang">Node</span>
+        <code>npx serve .</code>
+        <span class="cors-copy">copy</span>
+      </div>
+      <div class="cors-cmd" onclick="copyCmd(this)" data-cmd="php -S localhost:8080">
+        <span class="cors-lang">PHP</span>
+        <code>php -S localhost:8080</code>
+        <span class="cors-copy">copy</span>
+      </div>
+    </div>
+    <div class="cors-body" style="margin-top:8px">
+      Then visit <strong style="color:var(--accent)">http://localhost:8080</strong> in your browser.
+    </div>
+    <button class="cors-dismiss" onclick="document.getElementById('cors-banner').style.display='none'">
+      Dismiss (API calls will fail)
+    </button>
+  </div>
+</div>
 
 <script>
 /* ══════════════════════════════════════════════════════
@@ -676,26 +809,102 @@ function timeline() {
 }
 
 /* ══════════════════════════════════════════════════════
-   AI API
+   OPENAI API KEY & MODEL
+══════════════════════════════════════════════════════ */
+let OPENAI_KEY = '';
+let OPENAI_MODEL = 'gpt-4o';
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+
+function setKey(val) {
+  OPENAI_KEY = val.trim();
+  const st = document.getElementById('key-status');
+  if (!st) return;
+  if (OPENAI_KEY.startsWith('sk-') && OPENAI_KEY.length > 20) {
+    st.textContent = '✓ key set';
+    st.className = 'ok';
+  } else if (OPENAI_KEY.length > 0) {
+    st.textContent = '…';
+    st.className = '';
+  } else {
+    st.textContent = '';
+    st.className = '';
+  }
+}
+
+function setModel(val) {
+  OPENAI_MODEL = val;
+  showNotif(`Model → ${val}`, 'OpenAI');
+}
+
+/* Parse OpenAI error responses into readable messages */
+async function parseOpenAIError(res) {
+  let body = {};
+  try { body = await res.json(); } catch(_) {}
+  const msg = body.error?.message || res.statusText || 'Unknown error';
+  const code = body.error?.code || '';
+  if (res.status === 429) {
+    const retryAfter = res.headers.get('retry-after');
+    const retryMsg = retryAfter ? ` Retry in <strong>${retryAfter}s</strong>.` : '';
+    if (code === 'insufficient_quota') {
+      return `429 Quota exceeded — your OpenAI account has run out of credits. Add billing at <a href="https://platform.openai.com/account/billing" target="_blank" style="color:var(--accent4)">platform.openai.com</a>.${retryMsg}`;
+    }
+    return `429 Rate limit hit on <strong>${OPENAI_MODEL}</strong>.${retryMsg} Try <strong>gpt-4o-mini</strong> for higher rate limits.`;
+  }
+  if (res.status === 401) return `401 Invalid API key — check the key you pasted in the header bar.`;
+  if (res.status === 400) return `400 Bad Request — ${msg}`;
+  if (res.status === 403) return `403 Forbidden — ${msg}`;
+  return `${res.status}: ${msg}`;
+}
+
+/* ══════════════════════════════════════════════════════
+   AI API — OpenAI Chat Completions (GPT-4o default)
 ══════════════════════════════════════════════════════ */
 async function callAPI(prompt) {
-  const res = await fetch('http://localhost:11434/api/generate',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'llama3.2',prompt,stream:false})
+  if (!OPENAI_KEY) throw new Error('No OpenAI API key — paste your key (sk-…) in the header bar.');
+  const res = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_KEY}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 2048
+    })
   });
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).response;
+  if (!res.ok) throw new Error(await parseOpenAIError(res));
+  const d = await res.json();
+  return d.choices?.[0]?.message?.content ?? '';
 }
 
 async function callVisionAPI(prompt, b64) {
-  const res = await fetch('http://localhost:11434/api/generate',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'llava',prompt,images:[b64],stream:false})
+  if (!OPENAI_KEY) throw new Error('No OpenAI API key — paste your key (sk-…) in the header bar.');
+  /* GPT-3.5 Turbo does not support vision — fall back to gpt-4o */
+  const visionModel = OPENAI_MODEL === 'gpt-3.5-turbo' ? 'gpt-4o' : OPENAI_MODEL;
+  const res = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_KEY}`
+    },
+    body: JSON.stringify({
+      model: visionModel,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${b64}` } }
+        ]
+      }],
+      temperature: 0.4,
+      max_tokens: 2048
+    })
   });
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).response;
+  if (!res.ok) throw new Error(await parseOpenAIError(res));
+  const d = await res.json();
+  return d.choices?.[0]?.message?.content ?? '';
 }
 
 function parseArr(raw) {
@@ -1282,7 +1491,7 @@ Make meals realistic and delicious. Total ~${d} kcal.`;
         ${m.tip?`<div class="meal-tip">${m.tip}</div>`:''}
       </div>`).join('');
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate meal plan. Make sure Ollama is running at localhost:11434<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genMeals()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate meal plan. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genMeals()">Retry</button></div>`;
   }
 }
 
@@ -1334,7 +1543,7 @@ Include 4-6 exercises per day. Make it progressive and goal-appropriate.`;
           </div>`).join('')}
       </div>`).join('');
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate workout. Make sure Ollama is running.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genWorkout()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate workout. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genWorkout()">Retry</button></div>`;
   }
 }
 
@@ -1476,7 +1685,7 @@ Return ONLY valid JSON (no other text):
     out.innerHTML=renderBodyResults(data);
     setTimeout(()=>animBars('m-fill'),120);
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. Requires Ollama + LLaVA model running at localhost:11434<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. GPT-4o and GPT-4o-mini support vision — check your API key.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
   }
 }
 
@@ -1578,7 +1787,7 @@ Return ONLY valid JSON:
     const data=parseObj(raw);
     out.innerHTML=renderSkinResults(data);
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Skin analysis failed. Requires Ollama + LLaVA model.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeSkin()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Skin analysis failed. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeSkin()">Retry</button></div>`;
   }
 }
 
@@ -1783,7 +1992,7 @@ Return ONLY valid JSON:
       ${data.rules?`<div class="proto-card"><div class="proto-title">📋 Cheat Meal Rules</div>${data.rules.map(r=>`<div class="proto-rule">${r}</div>`).join('')}</div>`:''}
       ${data.recovery_tips?`<div class="proto-card" style="border-color:rgba(0,229,192,.2)"><div class="proto-title" style="color:var(--accent)">⚡ Recovery Plan</div>${data.recovery_tips.map(r=>`<div class="proto-rule">${r}</div>`).join('')}</div>`:''}`;
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not plan cheat meal. Make sure Ollama is running.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genCheat()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not plan cheat meal. Check your OpenAI API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genCheat()">Retry</button></div>`;
   }
 }
 
@@ -1864,15 +2073,41 @@ Coach:`;
     typing.remove();
     const em=document.createElement('div');
     em.className='msg ai';
-    em.innerHTML=`<div style="color:var(--accent2)">⚠️ Connection lost. Make sure Ollama is running at localhost:11434</div>`;
+    em.innerHTML=`<div style="color:var(--accent2)">⚠️ OpenAI connection failed. Check your API key in the header bar.</div>`;
     msgs.appendChild(em);
   }
   msgs.scrollTop=msgs.scrollHeight;
 }
 
 /* ══════════════════════════════════════════════════════
+   CORS / PROTOCOL CHECK
+══════════════════════════════════════════════════════ */
+function checkProtocol() {
+  if (window.location.protocol === 'file:') {
+    document.getElementById('cors-banner').style.display = 'flex';
+  }
+}
+
+function copyCmd(el) {
+  const cmd = el.dataset.cmd;
+  navigator.clipboard.writeText(cmd).then(() => {
+    const label = el.querySelector('.cors-copy');
+    label.textContent = 'copied!';
+    label.style.color = 'var(--accent)';
+    setTimeout(() => { label.textContent = 'copy'; label.style.color = ''; }, 2000);
+  }).catch(() => {
+    /* fallback — select the text */
+    const range = document.createRange();
+    range.selectNode(el.querySelector('code'));
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+  });
+}
+
+/* ══════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════ */
+checkProtocol();
 goStep(1);
 </script>
 </body>

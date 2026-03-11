@@ -585,6 +585,32 @@ video.scan-vid{
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 
 /* ═══════════════════════════════════════════
+   GEMINI KEY BAR
+═══════════════════════════════════════════ */
+.key-bar{
+  margin:6px 0 4px;
+  background:rgba(14,20,24,.8);
+  border:1px solid var(--border);
+  border-radius:8px;padding:7px 10px;
+}
+.key-row{display:flex;align-items:center;gap:7px}
+.key-icon{font-size:11px;color:var(--accent4);flex-shrink:0}
+.key-bar input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--text);font-family:var(--mono);font-size:11px;
+  letter-spacing:.04em;min-width:0
+}
+.key-bar input::placeholder{color:var(--muted);font-size:10px}
+#key-status{font-size:11px;flex-shrink:0;transition:all .2s}
+#key-status.ok{color:var(--accent)}
+#key-status.bad{color:var(--accent2)}
+.key-hint{
+  font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:.03em
+}
+.key-hint a{color:var(--accent4);text-decoration:none}
+.key-hint a:hover{text-decoration:underline}
+
+/* ═══════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════ */
 @media(max-width:480px){
@@ -601,6 +627,19 @@ video.scan-vid{
     <div class="logo-tag">Personal Health Engine v3.0</div>
     <h1 class="app-title">Fitness | <span class="hindi-title">दर्जी</span></h1>
     <p class="tagline">// आपका personal health coach — biomarkers to kitchen in 60s</p>
+    <div class="key-bar">
+      <div class="key-row">
+        <span class="key-icon">✦</span>
+        <input type="password" id="gemini-key-inp"
+          placeholder="Paste Gemini API key to enable AI features…"
+          oninput="setKey(this.value)" autocomplete="off" spellcheck="false">
+        <span id="key-status"></span>
+      </div>
+      <div class="key-hint">
+        Gemini 2.0 Flash · Free key at
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>
+      </div>
+    </div>
     <div class="progress-dots" id="dots"></div>
   </header>
 
@@ -676,26 +715,69 @@ function timeline() {
 }
 
 /* ══════════════════════════════════════════════════════
-   AI API
+   GEMINI API KEY
+══════════════════════════════════════════════════════ */
+let GEMINI_KEY = '';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+function setKey(val) {
+  GEMINI_KEY = val.trim();
+  const st = document.getElementById('key-status');
+  if (!st) return;
+  if (GEMINI_KEY.length > 10) {
+    st.textContent = '✓ Key set';
+    st.className = 'ok';
+  } else if (GEMINI_KEY.length > 0) {
+    st.textContent = '…';
+    st.className = '';
+  } else {
+    st.textContent = '';
+    st.className = '';
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   AI API — Gemini 2.0 Flash
 ══════════════════════════════════════════════════════ */
 async function callAPI(prompt) {
-  const res = await fetch('http://localhost:11434/api/generate',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'llama3.2',prompt,stream:false})
+  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar above.');
+  const res = await fetch(`${GEMINI_BASE}?key=${GEMINI_KEY}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+    })
   });
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).response;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Gemini ${res.status}: ${err.error?.message || res.statusText}`);
+  }
+  const d = await res.json();
+  return d.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
 async function callVisionAPI(prompt, b64) {
-  const res = await fetch('http://localhost:11434/api/generate',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'llava',prompt,images:[b64],stream:false})
+  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar above.');
+  const res = await fetch(`${GEMINI_BASE}?key=${GEMINI_KEY}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: 'image/jpeg', data: b64 } }
+        ]
+      }],
+      generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+    })
   });
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()).response;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Gemini Vision ${res.status}: ${err.error?.message || res.statusText}`);
+  }
+  const d = await res.json();
+  return d.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
 function parseArr(raw) {
@@ -1282,7 +1364,7 @@ Make meals realistic and delicious. Total ~${d} kcal.`;
         ${m.tip?`<div class="meal-tip">${m.tip}</div>`:''}
       </div>`).join('');
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate meal plan. Make sure Ollama is running at localhost:11434<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genMeals()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate meal plan. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genMeals()">Retry</button></div>`;
   }
 }
 
@@ -1334,7 +1416,7 @@ Include 4-6 exercises per day. Make it progressive and goal-appropriate.`;
           </div>`).join('')}
       </div>`).join('');
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate workout. Make sure Ollama is running.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genWorkout()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not generate workout. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genWorkout()">Retry</button></div>`;
   }
 }
 
@@ -1476,7 +1558,7 @@ Return ONLY valid JSON (no other text):
     out.innerHTML=renderBodyResults(data);
     setTimeout(()=>animBars('m-fill'),120);
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. Requires Ollama + LLaVA model running at localhost:11434<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. Check your Gemini API key — Gemini 2.0 Flash supports vision natively.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
   }
 }
 
@@ -1578,7 +1660,7 @@ Return ONLY valid JSON:
     const data=parseObj(raw);
     out.innerHTML=renderSkinResults(data);
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Skin analysis failed. Requires Ollama + LLaVA model.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeSkin()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Skin analysis failed. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeSkin()">Retry</button></div>`;
   }
 }
 
@@ -1783,7 +1865,7 @@ Return ONLY valid JSON:
       ${data.rules?`<div class="proto-card"><div class="proto-title">📋 Cheat Meal Rules</div>${data.rules.map(r=>`<div class="proto-rule">${r}</div>`).join('')}</div>`:''}
       ${data.recovery_tips?`<div class="proto-card" style="border-color:rgba(0,229,192,.2)"><div class="proto-title" style="color:var(--accent)">⚡ Recovery Plan</div>${data.recovery_tips.map(r=>`<div class="proto-rule">${r}</div>`).join('')}</div>`:''}`;
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Could not plan cheat meal. Make sure Ollama is running.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genCheat()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Could not plan cheat meal. Check your Gemini API key in the header.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="genCheat()">Retry</button></div>`;
   }
 }
 
@@ -1864,7 +1946,7 @@ Coach:`;
     typing.remove();
     const em=document.createElement('div');
     em.className='msg ai';
-    em.innerHTML=`<div style="color:var(--accent2)">⚠️ Connection lost. Make sure Ollama is running at localhost:11434</div>`;
+    em.innerHTML=`<div style="color:var(--accent2)">⚠️ Gemini connection failed. Check your API key in the header bar.</div>`;
     msgs.appendChild(em);
   }
   msgs.scrollTop=msgs.scrollHeight;

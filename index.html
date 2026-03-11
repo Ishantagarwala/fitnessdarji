@@ -601,7 +601,15 @@ video.scan-vid{
   letter-spacing:.04em;min-width:0
 }
 .key-bar input::placeholder{color:var(--muted);font-size:10px}
-#key-status{font-size:11px;flex-shrink:0;transition:all .2s}
+#model-sel{
+  flex-shrink:0;background:var(--surface3);border:1px solid var(--border);
+  border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:9px;
+  padding:2px 4px;outline:none;cursor:pointer;max-width:110px;
+  -webkit-appearance:none;appearance:none
+}
+#model-sel:focus{border-color:var(--accent4)}
+#model-sel option{background:var(--surface)}
+#key-status{font-size:11px;flex-shrink:0;transition:all .2s;white-space:nowrap}
 #key-status.ok{color:var(--accent)}
 #key-status.bad{color:var(--accent2)}
 .key-hint{
@@ -633,11 +641,18 @@ video.scan-vid{
         <input type="password" id="gemini-key-inp"
           placeholder="Paste Gemini API key to enable AI features…"
           oninput="setKey(this.value)" autocomplete="off" spellcheck="false">
+        <select id="model-sel" onchange="setModel(this.value)" title="Gemini model">
+          <option value="gemini-1.5-flash" selected>1.5 Flash ✓free</option>
+          <option value="gemini-1.5-flash-8b">1.5 Flash 8B ✓free</option>
+          <option value="gemini-1.5-pro">1.5 Pro ✓free</option>
+          <option value="gemini-2.0-flash-lite">2.0 Flash Lite</option>
+          <option value="gemini-2.0-flash">2.0 Flash (billing)</option>
+        </select>
         <span id="key-status"></span>
       </div>
       <div class="key-hint">
-        Gemini 2.0 Flash · Free key at
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>
+        Free tier: 15 req/min · 1,500 req/day ·
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get API key →</a>
       </div>
     </div>
     <div class="progress-dots" id="dots"></div>
@@ -718,14 +733,18 @@ function timeline() {
    GEMINI API KEY
 ══════════════════════════════════════════════════════ */
 let GEMINI_KEY = '';
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+let GEMINI_MODEL = 'gemini-1.5-flash';
+
+function geminiURL() {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+}
 
 function setKey(val) {
   GEMINI_KEY = val.trim();
   const st = document.getElementById('key-status');
   if (!st) return;
   if (GEMINI_KEY.length > 10) {
-    st.textContent = '✓ Key set';
+    st.textContent = '✓ key set';
     st.className = 'ok';
   } else if (GEMINI_KEY.length > 0) {
     st.textContent = '…';
@@ -736,12 +755,35 @@ function setKey(val) {
   }
 }
 
+function setModel(val) {
+  GEMINI_MODEL = val;
+  showNotif(`Model → ${val}`, 'Gemini');
+}
+
+/* Parse a 429 response and return a human-readable message with retry time */
+async function parseGeminiError(res) {
+  let body = {};
+  try { body = await res.json(); } catch(_) {}
+  const msg = body.error?.message || res.statusText || 'Unknown error';
+  if (res.status === 429) {
+    const retryMatch = msg.match(/retry in ([\d.]+)s/i);
+    const retrySec = retryMatch ? Math.ceil(parseFloat(retryMatch[1])) : null;
+    const quotaHint = msg.includes('free_tier')
+      ? `Free-tier quota hit on <strong>${GEMINI_MODEL}</strong>. Try switching to <strong>gemini-1.5-flash</strong> or <strong>1.5-flash-8b</strong> in the model selector.`
+      : `Rate limit hit.`;
+    return `429 Too Many Requests — ${quotaHint}${retrySec ? ` Retry in <strong>${retrySec}s</strong>.` : ''}`;
+  }
+  if (res.status === 400) return `400 Bad Request — ${msg}`;
+  if (res.status === 403) return `403 Forbidden — API key may be invalid or restricted.`;
+  return `${res.status}: ${msg}`;
+}
+
 /* ══════════════════════════════════════════════════════
-   AI API — Gemini 2.0 Flash
+   AI API — Google Gemini (model selectable in header)
 ══════════════════════════════════════════════════════ */
 async function callAPI(prompt) {
-  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar above.');
-  const res = await fetch(`${GEMINI_BASE}?key=${GEMINI_KEY}`, {
+  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar.');
+  const res = await fetch(`${geminiURL()}?key=${GEMINI_KEY}`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
@@ -749,17 +791,14 @@ async function callAPI(prompt) {
       generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
     })
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Gemini ${res.status}: ${err.error?.message || res.statusText}`);
-  }
+  if (!res.ok) throw new Error(await parseGeminiError(res));
   const d = await res.json();
   return d.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
 async function callVisionAPI(prompt, b64) {
-  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar above.');
-  const res = await fetch(`${GEMINI_BASE}?key=${GEMINI_KEY}`, {
+  if (!GEMINI_KEY) throw new Error('No Gemini API key — paste your key in the header bar.');
+  const res = await fetch(`${geminiURL()}?key=${GEMINI_KEY}`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
@@ -772,10 +811,7 @@ async function callVisionAPI(prompt, b64) {
       generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
     })
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Gemini Vision ${res.status}: ${err.error?.message || res.statusText}`);
-  }
+  if (!res.ok) throw new Error(await parseGeminiError(res));
   const d = await res.json();
   return d.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
@@ -1558,7 +1594,7 @@ Return ONLY valid JSON (no other text):
     out.innerHTML=renderBodyResults(data);
     setTimeout(()=>animBars('m-fill'),120);
   } catch(e) {
-    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. Check your Gemini API key — Gemini 2.0 Flash supports vision natively.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
+    out.innerHTML=`<div class="err-card"><p>⚠️ Body scan failed. Check your Gemini API key — all supported models handle vision natively.<br><br><small>${e.message}</small></p><button class="btn btn-red btn-sm" onclick="analyzeBody()">Retry</button></div>`;
   }
 }
 

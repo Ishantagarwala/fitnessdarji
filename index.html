@@ -725,6 +725,11 @@ video.scan-vid{
       Run a local server in the same folder, then open the URL it gives you:
     </div>
     <div class="cors-cmds">
+      <div class="cors-cmd" onclick="copyCmd(this)" data-cmd="npx vercel dev">
+        <span class="cors-lang">Vercel</span>
+        <code>npx vercel dev</code>
+        <span class="cors-copy">copy</span>
+      </div>
       <div class="cors-cmd" onclick="copyCmd(this)" data-cmd="python3 -m http.server 8080">
         <span class="cors-lang">Python 3</span>
         <code>python3 -m http.server 8080</code>
@@ -735,14 +740,11 @@ video.scan-vid{
         <code>npx serve .</code>
         <span class="cors-copy">copy</span>
       </div>
-      <div class="cors-cmd" onclick="copyCmd(this)" data-cmd="php -S localhost:8080">
-        <span class="cors-lang">PHP</span>
-        <code>php -S localhost:8080</code>
-        <span class="cors-copy">copy</span>
-      </div>
     </div>
     <div class="cors-body" style="margin-top:8px">
-      Then visit <strong style="color:var(--accent)">http://localhost:8080</strong> in your browser.
+      <strong style="color:var(--accent)">Recommended:</strong> use <code>npx vercel dev</code> —
+      it runs the API proxy locally too, so all AI features work.<br>
+      Then open <strong style="color:var(--accent)">http://localhost:3000</strong>
     </div>
     <button class="cors-dismiss" onclick="document.getElementById('cors-banner').style.display='none'">
       Dismiss (API calls will fail)
@@ -813,7 +815,6 @@ function timeline() {
 ══════════════════════════════════════════════════════ */
 let OPENAI_KEY = '';
 let OPENAI_MODEL = 'gpt-4o';
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 function setKey(val) {
   OPENAI_KEY = val.trim();
@@ -857,17 +858,16 @@ async function parseOpenAIError(res) {
 }
 
 /* ══════════════════════════════════════════════════════
-   AI API — OpenAI Chat Completions (GPT-4o default)
+   AI API — routed through /api/chat (Vercel serverless proxy)
+   Same-origin call → no CORS, key never stored server-side
 ══════════════════════════════════════════════════════ */
 async function callAPI(prompt) {
   if (!OPENAI_KEY) throw new Error('No OpenAI API key — paste your key (sk-…) in the header bar.');
-  const res = await fetch(OPENAI_URL, {
+  const res = await fetch('/api/chat', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_KEY}`
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      apiKey: OPENAI_KEY,
       model: OPENAI_MODEL,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
@@ -883,13 +883,11 @@ async function callVisionAPI(prompt, b64) {
   if (!OPENAI_KEY) throw new Error('No OpenAI API key — paste your key (sk-…) in the header bar.');
   /* GPT-3.5 Turbo does not support vision — fall back to gpt-4o */
   const visionModel = OPENAI_MODEL === 'gpt-3.5-turbo' ? 'gpt-4o' : OPENAI_MODEL;
-  const res = await fetch(OPENAI_URL, {
+  const res = await fetch('/api/chat', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_KEY}`
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      apiKey: OPENAI_KEY,
       model: visionModel,
       messages: [{
         role: 'user',

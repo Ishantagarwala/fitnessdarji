@@ -660,3 +660,52 @@ video.scan-vid{
   #app{max-width:100%}
   .card{margin:10px;padding:18px 14px}
 }
+
+/* ═══════════════════════════════════════════
+   AUTH — loader, sign-in page, user button
+═══════════════════════════════════════════ */
+#auth-loader{
+  position:fixed;inset:0;z-index:99998;
+  background:var(--bg);display:flex;
+  align-items:center;justify-content:center;flex-direction:column;gap:12px
+}
+.auth-loader-inner{display:flex;flex-direction:column;align-items:center;gap:12px}
+.auth-loader-txt{font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+
+#auth-page{
+  min-height:100vh;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;padding:24px
+}
+.auth-hero{
+  max-width:400px;width:100%;text-align:center
+}
+
+/* Clerk component overrides */
+.clerk-card{
+  background:var(--surface) !important;
+  border:1px solid var(--border) !important;
+  border-radius:14px !important;
+  box-shadow:0 24px 64px rgba(0,0,0,.4) !important;
+}
+.clerk-header-title{
+  font-family:var(--display) !important;
+  color:var(--text) !important;
+}
+.clerk-btn-primary{
+  background:linear-gradient(135deg,var(--accent),#00b89a) !important;
+  color:#080c0f !important;font-family:var(--display) !important;
+  font-weight:700 !important;border-radius:10px !important;
+}
+.clerk-social-btn{
+  background:var(--surface2) !important;
+  border:1px solid var(--border) !important;
+  border-radius:10px !important;color:var(--text) !important;
+}
+.clerk-footer-link{color:var(--accent4) !important}
+
+/* header layout with user button */
+.hdr-top{
+  display:flex;justify-content:space-between;
+  align-items:flex-start;gap:10px;margin-bottom:4px
+}
+#user-btn-slot{flex-shrink:0;margin-top:4px}

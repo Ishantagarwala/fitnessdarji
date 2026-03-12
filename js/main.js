@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════
-   INIT
+   INIT — entry point
 ══════════════════════════════════════════════════════ */
 checkProtocol();
-goStep(1);
+initAuth();       /* auth.js — handles Clerk init, then goStep(1) or dashboard */

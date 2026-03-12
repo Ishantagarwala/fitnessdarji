@@ -256,10 +256,11 @@ function step6(ob) {
     </div>`;
   ob.appendChild(c);
 }
-function launch() {
+async function launch() {
   document.getElementById('onboarding').style.display='none';
   renderDots(STEPS+1);
   document.getElementById('dashboard').style.display='block';
   buildDashboard();
+  await saveProfile();          /* persist onboarding data for next visit */
   showNotif('Dashboard loaded — all systems go.','दर्जी Ready 🚀');
 }

@@ -22,15 +22,15 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
 
-  const apiKey = process.env.ZENMUX_API_KEY;
+  // Prefer server-side env var; fall back to key sent from browser
+  const { apiKey: clientKey, ...body } = req.body;
+  const apiKey = process.env.ZENMUX_API_KEY || clientKey;
+
   if (!apiKey) {
     return res.status(500).json({
-      error: { message: 'ZENMUX_API_KEY is not set. Add it in the Vercel dashboard → Settings → Environment Variables.' }
+      error: { message: 'No API key configured. Set ZENMUX_API_KEY in Vercel env vars, or paste your key in the app header.' }
     });
   }
-
-  // Strip apiKey from body if the client accidentally sent it (backwards compat)
-  const { apiKey: _unused, ...body } = req.body;
 
   try {
     const upstream = await fetch(ZENMUX_URL, {
